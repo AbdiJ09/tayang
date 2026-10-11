@@ -1,0 +1,410 @@
+{
+  "updated": "2026-10-11",
+  "regions": [
+    {
+      "id": "jaksel",
+      "name": "Jakarta Selatan"
+    },
+    {
+      "id": "jakpus",
+      "name": "Jakarta Pusat"
+    },
+    {
+      "id": "jakbar",
+      "name": "Jakarta Barat"
+    },
+    {
+      "id": "jakut",
+      "name": "Jakarta Utara"
+    },
+    {
+      "id": "jaktim",
+      "name": "Jakarta Timur"
+    },
+    {
+      "id": "bodetabek",
+      "name": "Bodetabek"
+    }
+  ],
+  "cinemas": [
+    {
+      "id": "plaza-senayan-xxi",
+      "name": "Plaza Senayan XXI",
+      "chain": "XXI",
+      "region": "jaksel",
+      "address": "Plaza Senayan, Jl. Asia Afrika, Gelora"
+    },
+    {
+      "id": "senayan-city-xxi",
+      "name": "Senayan City XXI",
+      "chain": "XXI",
+      "region": "jaksel",
+      "address": "Senayan City, Jl. Asia Afrika, Gelora"
+    },
+    {
+      "id": "gandaria-city-xxi",
+      "name": "Gandaria City XXI",
+      "chain": "XXI",
+      "region": "jaksel",
+      "address": "Gandaria City, Kebayoran Lama"
+    },
+    {
+      "id": "pim-xxi",
+      "name": "Pondok Indah Mall XXI",
+      "chain": "XXI",
+      "region": "jaksel",
+      "address": "Pondok Indah Mall, Kebayoran Lama"
+    },
+    {
+      "id": "kokas-xxi",
+      "name": "Kota Kasablanka XXI",
+      "chain": "XXI",
+      "region": "jaksel",
+      "address": "Kota Kasablanka, Tebet"
+    },
+    {
+      "id": "cgv-pacific-place",
+      "name": "CGV Pacific Place",
+      "chain": "CGV",
+      "region": "jaksel",
+      "address": "Pacific Place, SCBD"
+    },
+    {
+      "id": "cgv-grand-indonesia",
+      "name": "CGV Grand Indonesia",
+      "chain": "CGV",
+      "region": "jakpus",
+      "address": "Grand Indonesia, Thamrin"
+    },
+    {
+      "id": "metropole-xxi",
+      "name": "Metropole XXI",
+      "chain": "XXI",
+      "region": "jakpus",
+      "address": "Jl. Pegangsaan, Menteng"
+    },
+    {
+      "id": "central-park-xxi",
+      "name": "Central Park XXI",
+      "chain": "XXI",
+      "region": "jakbar",
+      "address": "Central Park Mall, Tanjung Duren"
+    },
+    {
+      "id": "puri-xxi",
+      "name": "Puri XXI",
+      "chain": "XXI",
+      "region": "jakbar",
+      "address": "Puri Indah Mall, Kembangan"
+    },
+    {
+      "id": "mkg-xxi",
+      "name": "Mall Kelapa Gading XXI",
+      "chain": "XXI",
+      "region": "jakut",
+      "address": "Mall Kelapa Gading, Kelapa Gading"
+    },
+    {
+      "id": "emporium-pluit-xxi",
+      "name": "Emporium Pluit XXI",
+      "chain": "XXI",
+      "region": "jakut",
+      "address": "Emporium Pluit Mall, Penjaringan"
+    },
+    {
+      "id": "cipinang-xxi",
+      "name": "Cipinang Indah XXI",
+      "chain": "XXI",
+      "region": "jaktim",
+      "address": "Mall Cipinang Indah, Jatinegara"
+    },
+    {
+      "id": "sms-xxi",
+      "name": "Summarecon Mall Serpong XXI",
+      "chain": "XXI",
+      "region": "bodetabek",
+      "address": "Gading Serpong, Tangerang"
+    },
+    {
+      "id": "margo-city-xxi",
+      "name": "Margo City XXI",
+      "chain": "XXI",
+      "region": "bodetabek",
+      "address": "Jl. Margonda Raya, Depok"
+    },
+    {
+      "id": "botani-xxi",
+      "name": "Botani XXI",
+      "chain": "XXI",
+      "region": "bodetabek",
+      "address": "Botani Square, Bogor"
+    },
+    {
+      "id": "smb-xxi",
+      "name": "Summarecon Mall Bekasi XXI",
+      "chain": "XXI",
+      "region": "bodetabek",
+      "address": "Summarecon Bekasi, Bekasi Utara"
+    }
+  ],
+  "movies": [
+    {
+      "id": "jumbo",
+      "title": "Jumbo",
+      "poster": "https://image.tmdb.org/t/p/w500/rbjTGOKWcL6xjhTMGhRN1YNejE5.jpg",
+      "year": 2025,
+      "genres": [
+        "Animasi",
+        "Keluarga"
+      ],
+      "duration": 102,
+      "rating": "SU",
+      "synopsis": "Don, anak yatim piatu yang sering diremehkan karena badannya besar, ingin membuktikan diri lewat pentas bakat — dibantu sahabat-sahabatnya dan satu teman yang tak terduga.",
+      "showtimes": {
+        "plaza-senayan-xxi": [
+          "11:00",
+          "13:15",
+          "15:30"
+        ],
+        "kokas-xxi": [
+          "10:45",
+          "13:00",
+          "17:20"
+        ],
+        "mkg-xxi": [
+          "12:00",
+          "14:15"
+        ],
+        "margo-city-xxi": [
+          "11:30",
+          "13:45",
+          "16:00"
+        ],
+        "cipinang-xxi": [
+          "12:15",
+          "14:30"
+        ]
+      }
+    },
+    {
+      "id": "bukit-duri",
+      "title": "Pengepungan di Bukit Duri",
+      "poster": "https://image.tmdb.org/t/p/w500/tx2toda5HijndqRZXDuoGkSud8L.jpg",
+      "year": 2025,
+      "genres": [
+        "Aksi",
+        "Thriller"
+      ],
+      "duration": 118,
+      "rating": "17+",
+      "synopsis": "Seorang guru yang mencari keponakannya terjebak di sekolah paling brutal di Jakarta, ketika kota mulai runtuh di sekelilingnya.",
+      "showtimes": {
+        "senayan-city-xxi": [
+          "14:00",
+          "18:45",
+          "21:30"
+        ],
+        "cgv-grand-indonesia": [
+          "13:30",
+          "19:00",
+          "21:45"
+        ],
+        "central-park-xxi": [
+          "15:10",
+          "20:00"
+        ],
+        "sms-xxi": [
+          "16:30",
+          "21:00"
+        ]
+      }
+    },
+    {
+      "id": "sore",
+      "title": "Sore: Istri dari Masa Depan",
+      "poster": "https://image.tmdb.org/t/p/w500/u4pNXPmBuYeTtksakUCZgJ1zpSB.jpg",
+      "year": 2025,
+      "genres": [
+        "Drama",
+        "Romansa",
+        "Fantasi"
+      ],
+      "duration": 119,
+      "rating": "13+",
+      "synopsis": "Jonathan, fotografer yang hidup sendiri di Kroasia, tiba-tiba didatangi perempuan bernama Sore yang mengaku istrinya dari masa depan.",
+      "showtimes": {
+        "plaza-senayan-xxi": [
+          "16:00",
+          "19:10"
+        ],
+        "cgv-pacific-place": [
+          "15:45",
+          "20:15"
+        ],
+        "metropole-xxi": [
+          "14:20",
+          "18:30"
+        ],
+        "puri-xxi": [
+          "17:00",
+          "20:30"
+        ],
+        "botani-xxi": [
+          "15:00",
+          "19:00"
+        ]
+      }
+    },
+    {
+      "id": "the-odyssey",
+      "title": "The Odyssey",
+      "poster": "https://image.tmdb.org/t/p/w500/5rhTDKUhPYvpdQIijFIs5VoWsON.jpg",
+      "year": 2026,
+      "genres": [
+        "Epik",
+        "Petualangan"
+      ],
+      "duration": 165,
+      "rating": "13+",
+      "synopsis": "Perjalanan panjang Odysseus pulang ke Ithaca setelah Perang Troya, melewati laut, dewa, dan monster yang menguji tekadnya.",
+      "showtimes": {
+        "gandaria-city-xxi": [
+          "12:30",
+          "16:10",
+          "20:00"
+        ],
+        "cgv-pacific-place": [
+          "13:00",
+          "17:00",
+          "21:00"
+        ],
+        "cgv-grand-indonesia": [
+          "12:00",
+          "16:00",
+          "20:30"
+        ],
+        "emporium-pluit-xxi": [
+          "14:45",
+          "19:15"
+        ],
+        "smb-xxi": [
+          "13:30",
+          "18:00"
+        ]
+      }
+    },
+    {
+      "id": "spider-man-bnd",
+      "title": "Spider-Man: Brand New Day",
+      "poster": "https://image.tmdb.org/t/p/w500/bjiS5ipwxb9JFy3XRRN4OAilSeX.jpg",
+      "year": 2026,
+      "genres": [
+        "Aksi",
+        "Superhero"
+      ],
+      "duration": 135,
+      "rating": "13+",
+      "synopsis": "Setelah dunia melupakan siapa dirinya, Peter Parker memulai hidup baru — sampai ancaman lama kembali mengetuk pintu.",
+      "showtimes": {
+        "pim-xxi": [
+          "11:15",
+          "14:00",
+          "17:45",
+          "21:15"
+        ],
+        "kokas-xxi": [
+          "12:40",
+          "16:20",
+          "20:10"
+        ],
+        "central-park-xxi": [
+          "13:00",
+          "16:45",
+          "21:00"
+        ],
+        "mkg-xxi": [
+          "15:30",
+          "19:45"
+        ],
+        "cipinang-xxi": [
+          "16:00",
+          "20:00"
+        ],
+        "margo-city-xxi": [
+          "14:15",
+          "18:30"
+        ]
+      }
+    },
+    {
+      "id": "toy-story-5",
+      "title": "Toy Story 5",
+      "poster": "https://image.tmdb.org/t/p/w500/sfQtVlIHljToOwYjhe21KPGzZWK.jpg",
+      "year": 2026,
+      "genres": [
+        "Animasi",
+        "Komedi"
+      ],
+      "duration": 100,
+      "rating": "SU",
+      "synopsis": "Woody, Buzz, dan kawan-kawan berhadapan dengan rival paling modern: sebuah tablet yang merebut perhatian anak-anak.",
+      "showtimes": {
+        "senayan-city-xxi": [
+          "10:30",
+          "12:45"
+        ],
+        "gandaria-city-xxi": [
+          "11:00",
+          "13:20",
+          "15:40"
+        ],
+        "puri-xxi": [
+          "10:45",
+          "13:00"
+        ],
+        "emporium-pluit-xxi": [
+          "11:30",
+          "13:50"
+        ],
+        "sms-xxi": [
+          "10:40",
+          "12:50",
+          "15:00"
+        ],
+        "botani-xxi": [
+          "11:10",
+          "13:30"
+        ]
+      }
+    },
+    {
+      "id": "michael",
+      "title": "Michael",
+      "poster": "https://image.tmdb.org/t/p/w500/dueFqKLvjftnELZaGYwY7xinfaI.jpg",
+      "year": 2026,
+      "genres": [
+        "Biografi",
+        "Musikal"
+      ],
+      "duration": 128,
+      "rating": "13+",
+      "synopsis": "Kisah hidup Michael Jackson — dari panggung keluarga di Gary, Indiana, hingga menjadi Raja Pop dunia.",
+      "showtimes": {
+        "pim-xxi": [
+          "18:30",
+          "21:40"
+        ],
+        "metropole-xxi": [
+          "19:00"
+        ],
+        "cgv-grand-indonesia": [
+          "18:15",
+          "21:20"
+        ],
+        "smb-xxi": [
+          "19:30"
+        ]
+      }
+    }
+  ]
+}
