@@ -8,8 +8,10 @@
 /// oleh Row Level Security di `supabase/schema.sql`. JANGAN pernah taruh
 /// secret key / `service_role` di sini.
 ///
-/// Bisa juga diisi saat run tanpa mengubah file:
-///   flutter run --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_KEY=...
+/// Nilai di bawah = project bawaan repo. Pakai project Supabase sendiri tanpa
+/// mengubah file ini: copy `supabase.example.json` → `supabase.json`, isi, lalu
+///   flutter run -d chrome --dart-define-from-file=supabase.json
+/// (lihat TUTORIAL.md langkah 5–7).
 const supabaseUrl = String.fromEnvironment(
   'SUPABASE_URL',
   defaultValue: 'https://ihrimgpcvjquohzdfxbz.supabase.co',

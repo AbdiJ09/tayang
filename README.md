@@ -78,13 +78,19 @@ flutter pub get
 flutter run -d chrome
 ```
 
+Perintah di atas nyambung ke database bawaan repo. Mau pakai **project Supabase sendiri**? Jalanin
+`supabase/schema.sql` di project-mu, copy `supabase.example.json` jadi `supabase.json`, isi URL dan publishable
+key-nya, terus jalanin pakai `flutter run -d chrome --dart-define-from-file=supabase.json`. Langkah lengkapnya
+ada di [TUTORIAL.md](TUTORIAL.md).
+
 ## Struktur
 
 ```
 assets/data/tayang.json   data wilayah & bioskop
 supabase/schema.sql       tabel, relasi, role, RLS, storage, data awal
 supabase/upgrade_roles.sql  upgrade project lama → role admin/user
-lib/config.dart           URL & publishable key Supabase
+supabase.example.json     contoh config Supabase pribadi (copy → supabase.json)
+lib/config.dart           URL & publishable key Supabase bawaan
 lib/main.dart             entry point + cek login (AuthGate)
 lib/auth_page.dart        halaman masuk / daftar
 lib/data.dart             model (AppUser, Movie) + query Supabase

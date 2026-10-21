@@ -36,12 +36,16 @@ Kalau tetap dinyalain juga nggak apa-apa. App bakal minta user buka link di emai
 2. Copy dua nilai ini:
    - **Project URL**, contohnya `https://abcdefghijkl.supabase.co`
    - **Publishable key** (`sb_publishable_...`), atau **anon key** di project lama
-3. Isi di [`lib/config.dart`](../lib/config.dart) sebagai `defaultValue`:
+3. Pilih salah satu:
+   - **Config pribadi** (disarankan kalau kamu bukan pemilik repo): copy `supabase.example.json` jadi
+     `supabase.json`, isi dua nilai itu, terus jalanin app pakai
+     `flutter run -d chrome --dart-define-from-file=supabase.json`. File ini nggak ikut ke git.
+   - **Jadiin bawaan repo** (pemilik repo): isi di [`lib/config.dart`](../lib/config.dart) sebagai `defaultValue`:
 
-   ```dart
-   const supabaseUrl = String.fromEnvironment('SUPABASE_URL', defaultValue: 'https://abcdefghijkl.supabase.co');
-   const supabaseKey = String.fromEnvironment('SUPABASE_KEY', defaultValue: 'sb_publishable_...');
-   ```
+     ```dart
+     const supabaseUrl = String.fromEnvironment('SUPABASE_URL', defaultValue: 'https://abcdefghijkl.supabase.co');
+     const supabaseKey = String.fromEnvironment('SUPABASE_KEY', defaultValue: 'sb_publishable_...');
+     ```
 
 > Publishable/anon key memang dibuat buat ditaruh di aplikasi, jadi aman masuk GitHub. Data tetap dijaga
 > **Row Level Security** di `schema.sql`. **Jangan pernah** taruh *secret key* / `service_role` di aplikasi.
