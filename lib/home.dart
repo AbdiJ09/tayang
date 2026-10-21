@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'add_movie.dart';
 import 'data.dart';
@@ -20,6 +21,7 @@ class _HomePageState extends State<HomePage> {
   String _query = '';
   String? _regionId;
   String? _cinemaId;
+  bool _favOnly = false;
 
   Catalog get c => widget.catalog;
 
@@ -35,6 +37,7 @@ class _HomePageState extends State<HomePage> {
   List<Movie> get _results {
     final q = _norm(_query);
     return c.movies.where((m) {
+      if (_favOnly && !c.isBookmarked(m)) return false;
       if (q.isNotEmpty && !_norm(m.title).contains(q)) return false;
       if (_regionId == null) return true;
       return c
@@ -48,28 +51,46 @@ class _HomePageState extends State<HomePage> {
     _cinemaId = null;
   });
 
-  Future<void> _openDetail(Movie movie) async {
-    final removed = await Navigator.of(context).push<bool>(
-      fadeRoute(DetailPage(catalog: c, movie: movie, regionId: _regionId)),
-    );
-    if (removed == true) setState(() {});
-  }
+  void _openDetail(Movie movie) => Navigator.of(
+    context,
+  ).push(fadeRoute(DetailPage(catalog: c, movie: movie, regionId: _regionId)));
 
   Future<void> _openAdd() async {
     final movie = await Navigator.of(context)
         .push<Movie>(fadeRoute(AddMoviePage(catalog: c)));
     if (movie == null) return;
-    await c.addMovie(movie);
     setState(() {
       _query = '';
       _search.clear();
       _regionId = null;
       _cinemaId = null;
+      _favOnly = false;
     });
   }
 
+  Future<void> _toggleBookmark(Movie movie) async {
+    try {
+      await c.toggleBookmark(movie);
+    } catch (e) {
+      if (mounted) showError(context, friendlyError(e));
+    }
+  }
+
+  Future<void> _refresh() async {
+    try {
+      await c.refresh();
+    } catch (e) {
+      if (mounted) showError(context, friendlyError(e));
+    }
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: c,
+    builder: (context, _) => _build(context),
+  );
+
+  Widget _build(BuildContext context) {
     final results = _results;
     final pad = MediaQuery.sizeOf(context).width > 640 ? 48.0 : 24.0;
 
@@ -79,126 +100,187 @@ class _HomePageState extends State<HomePage> {
         child: GestureDetector(
           onTap: () => FocusScope.of(context).unfocus(),
           behavior: HitTestBehavior.translucent,
-          child: CustomScrollView(
-            slivers: [
-              SliverPadding(
-                padding: EdgeInsets.fromLTRB(pad, 40, pad, 0),
-                sliver: SliverList.list(
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            'JAKARTA & SEKITARNYA',
-                            style: Txt.label(),
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: _openAdd,
-                          behavior: HitTestBehavior.opaque,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
+          child: RefreshIndicator(
+            onRefresh: _refresh,
+            color: Palette.brass,
+            backgroundColor: const Color(0xFF1C1915),
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                SliverPadding(
+                  padding: EdgeInsets.fromLTRB(pad, 40, pad, 0),
+                  sliver: SliverList.list(
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
                             child: Text(
-                              '+  TAMBAH FILM',
-                              style: Txt.label(color: Palette.brass),
+                              'JAKARTA & SEKITARNYA',
+                              style: Txt.label(),
                             ),
                           ),
+                          GestureDetector(
+                            onTap: _openAdd,
+                            behavior: HitTestBehavior.opaque,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              child: Text(
+                                '+  TAMBAH FILM',
+                                style: Txt.label(color: Palette.brass),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      Text('Tayang', style: Txt.display(56)),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Film yang sedang diputar, bioskop demi bioskop.',
+                        style: Txt.italic(19),
+                      ),
+                      const SizedBox(height: 36),
+                      _SearchField(
+                        controller: _search,
+                        onChanged: (v) => setState(() => _query = v),
+                      ),
+                      const SizedBox(height: 22),
+                    ],
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: _TextTabs(
+                    padding: pad,
+                    small: true,
+                    items: [
+                      (null, 'Semua film'),
+                      ('fav', 'Favorit · ${c.bookmarkCount}'),
+                    ],
+                    selected: _favOnly ? 'fav' : null,
+                    onSelect: (id) => setState(() => _favOnly = id != null),
+                  ),
+                ),
+                const SliverToBoxAdapter(child: SizedBox(height: 22)),
+                SliverToBoxAdapter(
+                  child: _TextTabs(
+                    padding: pad,
+                    items: [
+                      (null, 'Semua'),
+                      for (final r in c.regions) (r.id, r.name),
+                    ],
+                    selected: _regionId,
+                    onSelect: _pickRegion,
+                  ),
+                ),
+                if (_regionId != null)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 14),
+                      child: _TextTabs(
+                        padding: pad,
+                        small: true,
+                        items: [
+                          (null, 'Semua bioskop'),
+                          for (final cin in c.cinemasIn(_regionId))
+                            (cin.id, cin.name),
+                        ],
+                        selected: _cinemaId,
+                        onSelect: (id) => setState(() => _cinemaId = id),
+                      ),
+                    ),
+                  ),
+                SliverPadding(
+                  padding: EdgeInsets.fromLTRB(pad, 28, pad, 12),
+                  sliver: SliverToBoxAdapter(
+                    child: Text(
+                      '${results.length} FILM  ·  '
+                      '${_cinemaId != null ? 1 : c.cinemasIn(_regionId).length} BIOSKOP',
+                      style: Txt.label(color: Palette.faint),
+                    ),
+                  ),
+                ),
+                if (results.isEmpty)
+                  SliverPadding(
+                    padding: EdgeInsets.fromLTRB(pad, 32, pad, 0),
+                    sliver: SliverToBoxAdapter(
+                      child: Text(
+                        _query.isNotEmpty
+                            ? 'Tidak ada film berjudul “$_query” di sini.'
+                            : _favOnly
+                            ? 'Belum ada film favorit. Ketuk ikon penanda di film yang kamu suka.'
+                            : 'Belum ada film yang diputar di sini.',
+                        style: Txt.italic(20),
+                      ),
+                    ),
+                  )
+                else
+                  SliverPadding(
+                    padding: EdgeInsets.symmetric(horizontal: pad),
+                    sliver: SliverList.builder(
+                      itemCount: results.length,
+                      itemBuilder: (context, i) => _MovieRow(
+                        movie: results[i],
+                        screenings: c.screeningsOf(
+                          results[i],
+                          regionId: _regionId,
+                          cinemaId: _cinemaId,
+                        ),
+                        filtered: _regionId != null,
+                        saved: c.isBookmarked(results[i]),
+                        onTap: () => _openDetail(results[i]),
+                        onToggleSave: () => _toggleBookmark(results[i]),
+                      ),
+                    ),
+                  ),
+                SliverPadding(
+                  padding: EdgeInsets.fromLTRB(pad, 48, pad, 48),
+                  sliver: SliverToBoxAdapter(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'JADWAL PER ${_dateLabel(c.updated)}',
+                          style: Txt.label(color: Palette.faint, size: 10),
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                'MASUK SEBAGAI ${c.user.name.toUpperCase()}',
+                                overflow: TextOverflow.ellipsis,
+                                style: Txt.label(
+                                  color: Palette.faint,
+                                  size: 10,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            GestureDetector(
+                              onTap: () =>
+                                  Supabase.instance.client.auth.signOut(),
+                              behavior: HitTestBehavior.opaque,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 6,
+                                ),
+                                child: Text(
+                                  'KELUAR',
+                                  style: Txt.label(
+                                    color: Palette.brass,
+                                    size: 10,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                    const SizedBox(height: 14),
-                    Text('Tayang', style: Txt.display(56)),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Film yang sedang diputar, bioskop demi bioskop.',
-                      style: Txt.italic(19),
-                    ),
-                    const SizedBox(height: 36),
-                    _SearchField(
-                      controller: _search,
-                      onChanged: (v) => setState(() => _query = v),
-                    ),
-                    const SizedBox(height: 28),
-                  ],
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: _TextTabs(
-                  padding: pad,
-                  items: [
-                    (null, 'Semua'),
-                    for (final r in c.regions) (r.id, r.name),
-                  ],
-                  selected: _regionId,
-                  onSelect: _pickRegion,
-                ),
-              ),
-              if (_regionId != null)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 14),
-                    child: _TextTabs(
-                      padding: pad,
-                      small: true,
-                      items: [
-                        (null, 'Semua bioskop'),
-                        for (final cin in c.cinemasIn(_regionId))
-                          (cin.id, cin.name),
-                      ],
-                      selected: _cinemaId,
-                      onSelect: (id) => setState(() => _cinemaId = id),
-                    ),
                   ),
                 ),
-              SliverPadding(
-                padding: EdgeInsets.fromLTRB(pad, 28, pad, 12),
-                sliver: SliverToBoxAdapter(
-                  child: Text(
-                    '${results.length} FILM  ·  '
-                    '${_cinemaId != null ? 1 : c.cinemasIn(_regionId).length} BIOSKOP',
-                    style: Txt.label(color: Palette.faint),
-                  ),
-                ),
-              ),
-              if (results.isEmpty)
-                SliverPadding(
-                  padding: EdgeInsets.fromLTRB(pad, 32, pad, 0),
-                  sliver: SliverToBoxAdapter(
-                    child: Text(
-                      _query.isEmpty
-                          ? 'Belum ada film yang diputar di sini.'
-                          : 'Tidak ada film berjudul “$_query” di lokasi ini.',
-                      style: Txt.italic(20),
-                    ),
-                  ),
-                )
-              else
-                SliverPadding(
-                  padding: EdgeInsets.symmetric(horizontal: pad),
-                  sliver: SliverList.builder(
-                    itemCount: results.length,
-                    itemBuilder: (context, i) => _MovieRow(
-                      movie: results[i],
-                      screenings: c.screeningsOf(
-                        results[i],
-                        regionId: _regionId,
-                        cinemaId: _cinemaId,
-                      ),
-                      filtered: _regionId != null,
-                      onTap: () => _openDetail(results[i]),
-                    ),
-                  ),
-                ),
-              SliverPadding(
-                padding: EdgeInsets.fromLTRB(pad, 48, pad, 48),
-                sliver: SliverToBoxAdapter(
-                  child: Text(
-                    'JADWAL PER ${_dateLabel(c.updated)}',
-                    style: Txt.label(color: Palette.faint, size: 10),
-                  ),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -357,13 +439,17 @@ class _MovieRow extends StatelessWidget {
   final Movie movie;
   final List<Cinema> screenings;
   final bool filtered;
+  final bool saved;
   final VoidCallback onTap;
+  final VoidCallback onToggleSave;
 
   const _MovieRow({
     required this.movie,
     required this.screenings,
     required this.filtered,
+    required this.saved,
     required this.onTap,
+    required this.onToggleSave,
   });
 
   @override
@@ -429,12 +515,37 @@ class _MovieRow extends StatelessWidget {
                 ],
               ),
             ),
-            const Padding(
-              padding: EdgeInsets.only(top: 10, left: 8),
-              child: Icon(Icons.arrow_forward, size: 16, color: Palette.faint),
+            GestureDetector(
+              onTap: onToggleSave,
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 4, 0, 12),
+                child: BookmarkIcon(saved: saved),
+              ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Ikon penanda favorit; berganti dengan fade halus.
+class BookmarkIcon extends StatelessWidget {
+  final bool saved;
+  final double size;
+
+  const BookmarkIcon({super.key, required this.saved, this.size = 20});
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 200),
+      child: Icon(
+        saved ? Icons.bookmark : Icons.bookmark_border,
+        key: ValueKey(saved),
+        size: size,
+        color: saved ? Palette.brass : Palette.faint,
       ),
     );
   }

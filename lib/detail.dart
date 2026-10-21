@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'data.dart';
+import 'home.dart' show BookmarkIcon;
 import 'poster.dart';
 import 'theme.dart';
 
@@ -28,8 +29,22 @@ class DetailPage extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: catalog,
+    builder: (context, _) => _build(context),
+  );
+
+  Future<void> _toggleBookmark(BuildContext context) async {
+    try {
+      await catalog.toggleBookmark(movie);
+    } catch (e) {
+      if (context.mounted) showError(context, friendlyError(e));
+    }
+  }
+
+  Widget _build(BuildContext context) {
     final pad = MediaQuery.sizeOf(context).width > 640 ? 48.0 : 24.0;
+    final saved = catalog.isBookmarked(movie);
 
     // Kelompokkan bioskop per wilayah; wilayah terpilih paling atas.
     final regions = [...catalog.regions]
@@ -106,8 +121,35 @@ class DetailPage extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (movie.genres.isNotEmpty)
-                  Text(movie.genres.join(', '), style: Txt.italic(20)),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        movie.genres.join(', '),
+                        style: Txt.italic(20),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => _toggleBookmark(context),
+                      behavior: HitTestBehavior.opaque,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Row(
+                          children: [
+                            BookmarkIcon(saved: saved, size: 18),
+                            const SizedBox(width: 6),
+                            Text(
+                              saved ? 'FAVORIT' : 'SIMPAN',
+                              style: Txt.label(
+                                color: saved ? Palette.brass : Palette.muted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
                 if (movie.synopsis.isNotEmpty) ...[
                   const SizedBox(height: 24),
                   ConstrainedBox(
@@ -138,7 +180,7 @@ class DetailPage extends StatelessWidget {
                       onMaps: () => _openMaps(cin),
                     ),
                 ],
-                if (movie.custom) ...[
+                if (catalog.canDelete(movie)) ...[
                   const SizedBox(height: 56),
                   GestureDetector(
                     onTap: () => _confirmDelete(context),
@@ -168,7 +210,8 @@ class DetailPage extends StatelessWidget {
         shape: const RoundedRectangleBorder(),
         title: Text('Hapus “${movie.title}”?', style: Txt.display(26)),
         content: Text(
-          'Film ini akan hilang dari daftar di perangkat ini.',
+          'Film ini akan hilang untuk semua pengguna, termasuk dari '
+          'daftar favorit mereka.',
           style: Txt.body(size: 14),
         ),
         actions: [
@@ -184,8 +227,12 @@ class DetailPage extends StatelessWidget {
       ),
     );
     if (ok != true || !context.mounted) return;
-    await catalog.removeMovie(movie);
-    if (context.mounted) Navigator.of(context).pop(true);
+    try {
+      await catalog.removeMovie(movie);
+      if (context.mounted) Navigator.of(context).pop();
+    } catch (e) {
+      if (context.mounted) showError(context, friendlyError(e));
+    }
   }
 }
 

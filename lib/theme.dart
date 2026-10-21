@@ -74,3 +74,15 @@ Route<T> fadeRoute<T>(Widget page) => PageRouteBuilder<T>(
     child: child,
   ),
 );
+
+/// Notifikasi error singkat di bawah layar.
+void showError(BuildContext context, String message) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      backgroundColor: const Color(0xFF1C1915),
+      behavior: SnackBarBehavior.floating,
+      shape: const RoundedRectangleBorder(),
+      content: Text(message, style: Txt.italic(16, color: Palette.ink)),
+    ),
+  );
+}

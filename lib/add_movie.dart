@@ -36,6 +36,7 @@ class _AddMoviePageState extends State<AddMoviePage> {
   String? _poster;
   final _schedules = <_ScheduleRow>[_ScheduleRow()];
   String? _error;
+  bool _saving = false;
 
   @override
   void dispose() {
@@ -132,7 +133,8 @@ class _AddMoviePageState extends State<AddMoviePage> {
     );
   }
 
-  void _save() {
+  Future<void> _save() async {
+    if (_saving) return;
     final title = _title.text.trim();
     if (title.isEmpty) {
       setState(() => _error = 'Judul film wajib diisi.');
@@ -167,12 +169,19 @@ class _AddMoviePageState extends State<AddMoviePage> {
         ifAbsent: () => times,
       );
     }
-    final movie = Movie(
-      id: 'custom-${DateTime.now().millisecondsSinceEpoch}',
+    final year = int.tryParse(_year.text.trim());
+    if (year != null && (year < 1888 || year > 2100)) {
+      setState(() => _error = 'Tahun tidak valid.');
+      return;
+    }
+    final duration = int.tryParse(_duration.text.trim());
+
+    final draft = Movie(
+      id: '',
       title: title,
       poster: _poster,
-      year: int.tryParse(_year.text.trim()),
-      duration: int.tryParse(_duration.text.trim()),
+      year: year,
+      duration: duration == 0 ? null : duration,
       genres: _genres.text
           .split(',')
           .map((g) => g.trim())
@@ -183,9 +192,23 @@ class _AddMoviePageState extends State<AddMoviePage> {
       showtimes: showtimes.map(
         (k, v) => MapEntry(k, v.toSet().toList()..sort()),
       ),
-      custom: true,
     );
-    Navigator.of(context).pop(movie);
+
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      final saved = await widget.catalog.addMovie(draft);
+      if (mounted) Navigator.of(context).pop(saved);
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _error = 'Gagal menyimpan: ${friendlyError(e)}';
+        });
+      }
+    }
   }
 
   @override
@@ -220,7 +243,10 @@ class _AddMoviePageState extends State<AddMoviePage> {
               const SizedBox(height: 28),
               Text('Tambah film', style: Txt.display(46)),
               const SizedBox(height: 6),
-              Text('Tersimpan di perangkat ini.', style: Txt.italic(18)),
+              Text(
+                'Akan terlihat oleh semua pengguna Tayang.',
+                style: Txt.italic(18),
+              ),
               const SizedBox(height: 36),
 
               // Poster + judul berdampingan.
@@ -387,13 +413,13 @@ class _AddMoviePageState extends State<AddMoviePage> {
                 const SizedBox(height: 14),
               ],
               GestureDetector(
-                onTap: _save,
+                onTap: _saving ? null : _save,
                 child: Container(
                   height: 54,
                   alignment: Alignment.center,
-                  color: Palette.ink,
+                  color: _saving ? Palette.muted : Palette.ink,
                   child: Text(
-                    'SIMPAN FILM',
+                    _saving ? 'MENYIMPAN…' : 'SIMPAN FILM',
                     style: Txt.label(color: Palette.bg, size: 12),
                   ),
                 ),

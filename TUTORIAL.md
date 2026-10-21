@@ -109,6 +109,10 @@ flutter run -d chrome
 
 Kompilasi pertama sekitar 1–2 menit. Setelah itu Chrome kebuka sendiri dan app **Tayang** langsung muncul.
 
+Pertama kali buka, app nampilin halaman **Masuk**. Pilih **Daftar**, isi nama, email, dan password (minimal
+6 karakter), terus **Buat akun**. Akun ini kesimpen di database online, jadi bisa dipakai buat login di HP
+atau laptop lain. Butuh koneksi internet.
+
 Biar tampilannya kayak di HP: di Chrome tekan **F12** (Mac: `Cmd + Option + I`), klik ikon HP/tablet di
 pojok kiri atas panel, pilih misalnya *iPhone 12 Pro*.
 
@@ -190,7 +194,10 @@ dikenal** kalau diminta.
 | Font kelihatan biasa (bukan serif) | Font juga diambil dari internet waktu pertama buka. Pastiin online, terus reload. |
 | `Android license status unknown` | Jalanin `flutter doctor --android-licenses`, terus ketik `y` semua. |
 | Build Android lama banget / stuck di `Running Gradle task` | Wajar buat build pertama (download Gradle & SDK). Tunggu aja, jangan di-cancel. |
-| Film yang ditambah di HP A nggak muncul di HP B | Memang begitu. Film tambahan cuma tersimpan di perangkat masing-masing. Buat ngubah data yang dilihat semua orang, edit `assets/data/tayang.json` terus build ulang. |
+| Muncul tulisan **Supabase belum diatur** | `lib/config.dart` masih kosong. Pastiin udah `git pull` versi terbaru, atau isi sendiri sesuai [supabase/SETUP.md](supabase/SETUP.md). |
+| **Data gagal dimuat** / nggak bisa login padahal internet nyala | Project Supabase versi gratis otomatis *pause* kalau 7 hari nggak dipakai. Pemilik project buka dashboard Supabase, terus klik **Restore project**. |
+| Habis daftar muncul "buka link konfirmasi di email" | Konfirmasi email masih nyala di Supabase. Buka email-nya terus klik link-nya, atau pemilik project matiin **Confirm email** (lihat [SETUP.md](supabase/SETUP.md) langkah 3). |
+| Film baru nggak muncul di HP lain | Tarik layar daftar film ke bawah buat refresh. |
 
 ---
 

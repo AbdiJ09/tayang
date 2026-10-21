@@ -1,7 +1,8 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class Region {
   final String id;
@@ -37,11 +38,28 @@ class Cinema {
   );
 }
 
+/// Baris tabel `users`.
+class AppUser {
+  final String id;
+  final String name;
+  final String email;
+
+  const AppUser({required this.id, required this.name, required this.email});
+
+  factory AppUser.fromRow(Map<String, dynamic> r) => AppUser(
+    id: r['id'] as String,
+    name: r['name'] as String,
+    email: r['email'] as String,
+  );
+}
+
+/// Baris tabel `movies`.
 class Movie {
   final String id;
   final String title;
 
-  /// URL gambar (http/https) atau data URI base64 dari galeri. Boleh kosong.
+  /// URL gambar (http/https). Di form tambah film bisa juga data URI base64
+  /// dari galeri — diunggah ke Storage saat disimpan.
   final String? poster;
   final int? year;
   final List<String> genres;
@@ -52,8 +70,8 @@ class Movie {
   /// cinema id -> jam tayang ("HH:mm")
   final Map<String, List<String>> showtimes;
 
-  /// true kalau film ini ditambahkan sendiri lewat app (bisa dihapus).
-  final bool custom;
+  /// id user pembuat; null untuk film bawaan.
+  final String? createdBy;
 
   Movie({
     required this.id,
@@ -65,38 +83,37 @@ class Movie {
     this.rating = 'SU',
     this.synopsis = '',
     this.showtimes = const {},
-    this.custom = false,
+    this.createdBy,
   });
 
-  factory Movie.fromJson(Map<String, dynamic> j, {bool custom = false}) =>
-      Movie(
-        id: j['id'] as String,
-        title: j['title'] as String,
-        poster: j['poster'] as String?,
-        year: j['year'] as int?,
-        genres: List<String>.from(j['genres'] as List? ?? const []),
-        duration: j['duration'] as int?,
-        rating: j['rating'] as String? ?? 'SU',
-        synopsis: j['synopsis'] as String? ?? '',
-        showtimes: (j['showtimes'] as Map<String, dynamic>? ?? const {}).map(
-          (k, v) => MapEntry(k, List<String>.from(v as List)),
-        ),
-        custom: custom,
-      );
+  factory Movie.fromRow(Map<String, dynamic> r) => Movie(
+    id: r['id'] as String,
+    title: r['title'] as String,
+    poster: r['poster_url'] as String?,
+    year: r['year'] as int?,
+    genres: List<String>.from(r['genres'] as List? ?? const []),
+    duration: r['duration'] as int?,
+    rating: r['rating'] as String? ?? 'SU',
+    synopsis: r['synopsis'] as String? ?? '',
+    showtimes: (r['showtimes'] as Map<String, dynamic>? ?? const {}).map(
+      (k, v) => MapEntry(k, List<String>.from(v as List)),
+    ),
+    createdBy: r['created_by'] as String?,
+  );
 
-  Map<String, dynamic> toJson() => {
-    'id': id,
+  Map<String, dynamic> toRow() => {
     'title': title,
-    if (poster != null) 'poster': poster,
-    if (year != null) 'year': year,
+    'poster_url': poster,
+    'year': year,
     'genres': genres,
-    if (duration != null) 'duration': duration,
+    'duration': duration,
     'rating': rating,
     'synopsis': synopsis,
     'showtimes': showtimes,
+    'created_by': createdBy,
   };
 
-  /// Byte poster kalau disimpan sebagai data URI (hasil pilih dari galeri).
+  /// Byte poster kalau masih berupa data URI (pratinjau di form tambah film).
   late final Uint8List? posterBytes = () {
     final p = poster;
     if (p == null || !p.startsWith('data:')) return null;
@@ -109,7 +126,7 @@ class Movie {
     if (d == null || d <= 0) return null;
     final h = d ~/ 60;
     final m = d % 60;
-    return h > 0 ? '${h}j\u00A0${m}m' : '${m}m';
+    return h > 0 ? '${h}j ${m}m' : '${m}m';
   }
 
   /// Tahun, durasi, rating — yang kosong dilewati.
@@ -120,44 +137,50 @@ class Movie {
   ];
 }
 
-class Catalog {
-  static const _customKey = 'custom_movies';
-
+/// Semua data yang dipakai app: wilayah & bioskop dari JSON lokal, film &
+/// favorit dari Supabase. Memberi tahu pendengar setiap ada perubahan.
+class Catalog extends ChangeNotifier {
+  final SupabaseClient db;
+  final AppUser user;
   final String updated;
   final List<Region> regions;
   final List<Cinema> cinemas;
-  final List<Movie> _builtIn;
-  final List<Movie> _custom;
+
+  List<Movie> _movies;
+  final Set<String> _bookmarks;
 
   Catalog._(
+    this.db,
+    this.user,
     this.updated,
     this.regions,
     this.cinemas,
-    this._builtIn,
-    this._custom,
+    this._movies,
+    this._bookmarks,
   );
 
-  /// Film tambahan sendiri tampil paling atas.
-  List<Movie> get movies => [..._custom.reversed, ..._builtIn];
+  List<Movie> get movies => List.unmodifiable(_movies);
 
-  static Future<Catalog> load() async {
+  static Future<Catalog> load(SupabaseClient db) async {
+    final authUser = db.auth.currentUser!;
     final raw = await rootBundle.loadString('assets/data/tayang.json');
     final j = jsonDecode(raw) as Map<String, dynamic>;
 
-    var custom = <Movie>[];
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final saved = prefs.getString(_customKey);
-      if (saved != null) {
-        custom = (jsonDecode(saved) as List)
-            .map((e) => Movie.fromJson(e as Map<String, dynamic>, custom: true))
-            .toList();
-      }
-    } catch (_) {
-      // Penyimpanan rusak / tidak tersedia — mulai dari kosong.
-    }
+    final (profile, movies, bookmarks) = await (
+      db.from('users').select().eq('id', authUser.id).maybeSingle(),
+      _fetchMovies(db),
+      db.from('bookmarks').select('movie_id').eq('user_id', authUser.id),
+    ).wait;
 
     return Catalog._(
+      db,
+      profile != null
+          ? AppUser.fromRow(profile)
+          : AppUser(
+              id: authUser.id,
+              email: authUser.email ?? '',
+              name: (authUser.email ?? 'kamu').split('@').first,
+            ),
       j['updated'] as String,
       (j['regions'] as List)
           .map((e) => Region.fromJson(e as Map<String, dynamic>))
@@ -165,41 +188,109 @@ class Catalog {
       (j['cinemas'] as List)
           .map((e) => Cinema.fromJson(e as Map<String, dynamic>))
           .toList(),
-      (j['movies'] as List)
-          .map((e) => Movie.fromJson(e as Map<String, dynamic>))
-          .toList(),
-      custom,
+      movies,
+      {for (final b in bookmarks) b['movie_id'] as String},
     );
   }
 
-  Future<void> _saveCustom() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(
-      _customKey,
-      jsonEncode(_custom.map((m) => m.toJson()).toList()),
-    );
+  static Future<List<Movie>> _fetchMovies(SupabaseClient db) async {
+    final rows = await db
+        .from('movies')
+        .select()
+        .order('created_at', ascending: false)
+        .order('title');
+    return rows.map(Movie.fromRow).toList();
   }
 
-  Future<void> addMovie(Movie movie) async {
-    _custom.add(movie);
-    await _saveCustom();
+  Future<void> refresh() async {
+    final (movies, bookmarks) = await (
+      _fetchMovies(db),
+      db.from('bookmarks').select('movie_id').eq('user_id', user.id),
+    ).wait;
+    _movies = movies;
+    _bookmarks
+      ..clear()
+      ..addAll(bookmarks.map((b) => b['movie_id'] as String));
+    notifyListeners();
+  }
+
+  // ----- movies -----------------------------------------------------------
+
+  bool canDelete(Movie movie) => movie.createdBy == user.id;
+
+  /// Simpan film baru. Poster dari galeri (data URI) diunggah ke Storage dulu.
+  Future<Movie> addMovie(Movie draft) async {
+    var poster = draft.poster;
+    final bytes = draft.posterBytes;
+    if (bytes != null) {
+      final mime = poster!.substring(5, poster.indexOf(';'));
+      final ext = mime.split('/').last.replaceAll('jpeg', 'jpg');
+      final path = '${user.id}/${DateTime.now().millisecondsSinceEpoch}.$ext';
+      await db.storage
+          .from('posters')
+          .uploadBinary(
+            path,
+            bytes,
+            fileOptions: FileOptions(contentType: mime),
+          );
+      poster = db.storage.from('posters').getPublicUrl(path);
+    }
+
+    final row = await db
+        .from('movies')
+        .insert({...draft.toRow(), 'poster_url': poster, 'created_by': user.id})
+        .select()
+        .single();
+    final movie = Movie.fromRow(row);
+    _movies = [movie, ..._movies];
+    notifyListeners();
+    return movie;
   }
 
   Future<void> removeMovie(Movie movie) async {
-    _custom.removeWhere((m) => m.id == movie.id);
-    await _saveCustom();
+    await db.from('movies').delete().eq('id', movie.id);
+    _movies = _movies.where((m) => m.id != movie.id).toList();
+    _bookmarks.remove(movie.id);
+    notifyListeners();
   }
+
+  // ----- bookmarks --------------------------------------------------------
+
+  bool isBookmarked(Movie movie) => _bookmarks.contains(movie.id);
+
+  int get bookmarkCount =>
+      _movies.where((m) => _bookmarks.contains(m.id)).length;
+
+  /// Tambah/hapus favorit. Tampilan langsung berubah; kalau gagal, dikembalikan.
+  Future<void> toggleBookmark(Movie movie) async {
+    final wasSaved = _bookmarks.contains(movie.id);
+    wasSaved ? _bookmarks.remove(movie.id) : _bookmarks.add(movie.id);
+    notifyListeners();
+    try {
+      if (wasSaved) {
+        await db
+            .from('bookmarks')
+            .delete()
+            .eq('user_id', user.id)
+            .eq('movie_id', movie.id);
+      } else {
+        await db.from('bookmarks').insert({
+          'user_id': user.id,
+          'movie_id': movie.id,
+        });
+      }
+    } catch (_) {
+      wasSaved ? _bookmarks.add(movie.id) : _bookmarks.remove(movie.id);
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  // ----- lokasi -----------------------------------------------------------
 
   Cinema? cinema(String id) {
     for (final c in cinemas) {
       if (c.id == id) return c;
-    }
-    return null;
-  }
-
-  Region? region(String id) {
-    for (final r in regions) {
-      if (r.id == id) return r;
     }
     return null;
   }
@@ -217,4 +308,40 @@ class Catalog {
       return true;
     }).toList();
   }
+}
+
+/// Pesan error Supabase dalam bahasa Indonesia.
+String friendlyError(Object e) {
+  final msg = switch (e) {
+    AuthException(:final message) => message,
+    PostgrestException(:final message) => message,
+    StorageException(:final message) => message,
+    _ => e.toString(),
+  };
+  final m = msg.toLowerCase();
+  if (m.contains('invalid login credentials')) {
+    return 'Email atau password salah.';
+  }
+  if (m.contains('already registered') || m.contains('already exists')) {
+    return 'Email ini sudah terdaftar. Silakan masuk.';
+  }
+  if (m.contains('email not confirmed')) {
+    return 'Email belum dikonfirmasi. Buka link di inbox kamu dulu.';
+  }
+  if (m.contains('password') && m.contains('at least')) {
+    return 'Password minimal 6 karakter.';
+  }
+  if (m.contains('invalid') && m.contains('email')) {
+    return 'Format email tidak valid.';
+  }
+  if (m.contains('rate limit') || m.contains('too many')) {
+    return 'Terlalu banyak percobaan. Tunggu sebentar lalu coba lagi.';
+  }
+  if (m.contains('failed host lookup') ||
+      m.contains('socketexception') ||
+      m.contains('clientexception') ||
+      m.contains('failed to fetch')) {
+    return 'Tidak ada koneksi internet.';
+  }
+  return msg;
 }
