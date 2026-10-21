@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'add_movie.dart';
 import 'data.dart';
 import 'detail.dart';
+import 'favorites.dart';
 import 'poster.dart';
 import 'theme.dart';
 
@@ -21,7 +22,6 @@ class _HomePageState extends State<HomePage> {
   String _query = '';
   String? _regionId;
   String? _cinemaId;
-  bool _favOnly = false;
 
   Catalog get c => widget.catalog;
 
@@ -37,7 +37,6 @@ class _HomePageState extends State<HomePage> {
   List<Movie> get _results {
     final q = _norm(_query);
     return c.movies.where((m) {
-      if (_favOnly && !c.isBookmarked(m)) return false;
       if (q.isNotEmpty && !_norm(m.title).contains(q)) return false;
       if (_regionId == null) return true;
       return c
@@ -55,6 +54,9 @@ class _HomePageState extends State<HomePage> {
     context,
   ).push(fadeRoute(DetailPage(catalog: c, movie: movie, regionId: _regionId)));
 
+  void _openFavorites() =>
+      Navigator.of(context).push(fadeRoute(FavoritesPage(catalog: c)));
+
   Future<void> _openAdd() async {
     final movie = await Navigator.of(context)
         .push<Movie>(fadeRoute(AddMoviePage(catalog: c)));
@@ -64,7 +66,6 @@ class _HomePageState extends State<HomePage> {
       _search.clear();
       _regionId = null;
       _cinemaId = null;
-      _favOnly = false;
     });
   }
 
@@ -112,26 +113,36 @@ class _HomePageState extends State<HomePage> {
                   sliver: SliverList.list(
                     children: [
                       Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
                         children: [
-                          Expanded(
-                            child: Text(
-                              'JAKARTA & SEKITARNYA',
-                              style: Txt.label(),
+                          _HeaderAction(
+                            onTap: _openFavorites,
+                            child: Row(
+                              children: [
+                                BookmarkIcon(
+                                  saved: c.bookmarkCount > 0,
+                                  size: 15,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'FAVORIT · ${c.bookmarkCount}',
+                                  style: Txt.label(color: Palette.ink),
+                                ),
+                              ],
                             ),
                           ),
-                          GestureDetector(
+                          const SizedBox(width: 24),
+                          _HeaderAction(
                             onTap: _openAdd,
-                            behavior: HitTestBehavior.opaque,
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              child: Text(
-                                '+  TAMBAH FILM',
-                                style: Txt.label(color: Palette.brass),
-                              ),
+                            child: Text(
+                              '+  TAMBAH',
+                              style: Txt.label(color: Palette.brass),
                             ),
                           ),
                         ],
                       ),
+                      const SizedBox(height: 28),
+                      Text('JAKARTA & SEKITARNYA', style: Txt.label()),
                       const SizedBox(height: 14),
                       Text('Tayang', style: Txt.display(56)),
                       const SizedBox(height: 8),
@@ -144,23 +155,10 @@ class _HomePageState extends State<HomePage> {
                         controller: _search,
                         onChanged: (v) => setState(() => _query = v),
                       ),
-                      const SizedBox(height: 22),
+                      const SizedBox(height: 28),
                     ],
                   ),
                 ),
-                SliverToBoxAdapter(
-                  child: _TextTabs(
-                    padding: pad,
-                    small: true,
-                    items: [
-                      (null, 'Semua film'),
-                      ('fav', 'Favorit · ${c.bookmarkCount}'),
-                    ],
-                    selected: _favOnly ? 'fav' : null,
-                    onSelect: (id) => setState(() => _favOnly = id != null),
-                  ),
-                ),
-                const SliverToBoxAdapter(child: SizedBox(height: 22)),
                 SliverToBoxAdapter(
                   child: _TextTabs(
                     padding: pad,
@@ -206,8 +204,6 @@ class _HomePageState extends State<HomePage> {
                       child: Text(
                         _query.isNotEmpty
                             ? 'Tidak ada film berjudul “$_query” di sini.'
-                            : _favOnly
-                            ? 'Belum ada film favorit. Ketuk ikon penanda di film yang kamu suka.'
                             : 'Belum ada film yang diputar di sini.',
                         style: Txt.italic(20),
                       ),
@@ -218,7 +214,7 @@ class _HomePageState extends State<HomePage> {
                     padding: EdgeInsets.symmetric(horizontal: pad),
                     sliver: SliverList.builder(
                       itemCount: results.length,
-                      itemBuilder: (context, i) => _MovieRow(
+                      itemBuilder: (context, i) => MovieRow(
                         movie: results[i],
                         screenings: c.screeningsOf(
                           results[i],
@@ -435,7 +431,8 @@ class _Tab extends StatelessWidget {
   }
 }
 
-class _MovieRow extends StatelessWidget {
+/// Satu baris film: poster, judul, info, jadwal ringkas, tombol favorit.
+class MovieRow extends StatelessWidget {
   final Movie movie;
   final List<Cinema> screenings;
   final bool filtered;
@@ -443,7 +440,8 @@ class _MovieRow extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onToggleSave;
 
-  const _MovieRow({
+  const MovieRow({
+    super.key,
     required this.movie,
     required this.screenings,
     required this.filtered,
@@ -549,4 +547,21 @@ class BookmarkIcon extends StatelessWidget {
       ),
     );
   }
+}
+
+class _HeaderAction extends StatelessWidget {
+  final VoidCallback onTap;
+  final Widget child;
+
+  const _HeaderAction({required this.onTap, required this.child});
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: onTap,
+    behavior: HitTestBehavior.opaque,
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: child,
+    ),
+  );
 }

@@ -10,9 +10,15 @@
 ///
 /// Bisa juga diisi saat run tanpa mengubah file:
 ///   flutter run --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_KEY=...
-const supabaseUrl = String.fromEnvironment('SUPABASE_URL', defaultValue: '');
+const supabaseUrl = String.fromEnvironment(
+  'SUPABASE_URL',
+  defaultValue: 'https://ihrimgpcvjquohzdfxbz.supabase.co',
+);
 
-const supabaseKey = String.fromEnvironment('SUPABASE_KEY', defaultValue: '');
+const supabaseKey = String.fromEnvironment(
+  'SUPABASE_KEY',
+  defaultValue: 'sb_publishable_GlEwPadEo4tcSKrK5xYmCw_pZtNB-XQ',
+);
 
 bool get supabaseConfigured =>
     supabaseUrl.startsWith('https://') && supabaseKey.isNotEmpty;

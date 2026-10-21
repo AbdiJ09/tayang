@@ -147,6 +147,8 @@ class Catalog extends ChangeNotifier {
   final List<Cinema> cinemas;
 
   List<Movie> _movies;
+
+  /// id film favorit, urut dari yang paling lama disimpan.
   final Set<String> _bookmarks;
 
   Catalog._(
@@ -169,7 +171,11 @@ class Catalog extends ChangeNotifier {
     final (profile, movies, bookmarks) = await (
       db.from('users').select().eq('id', authUser.id).maybeSingle(),
       _fetchMovies(db),
-      db.from('bookmarks').select('movie_id').eq('user_id', authUser.id),
+      db
+          .from('bookmarks')
+          .select('movie_id')
+          .eq('user_id', authUser.id)
+          .order('created_at'),
     ).wait;
 
     return Catalog._(
@@ -205,7 +211,11 @@ class Catalog extends ChangeNotifier {
   Future<void> refresh() async {
     final (movies, bookmarks) = await (
       _fetchMovies(db),
-      db.from('bookmarks').select('movie_id').eq('user_id', user.id),
+      db
+          .from('bookmarks')
+          .select('movie_id')
+          .eq('user_id', user.id)
+          .order('created_at'),
     ).wait;
     _movies = movies;
     _bookmarks
@@ -258,8 +268,13 @@ class Catalog extends ChangeNotifier {
 
   bool isBookmarked(Movie movie) => _bookmarks.contains(movie.id);
 
-  int get bookmarkCount =>
-      _movies.where((m) => _bookmarks.contains(m.id)).length;
+  /// Film favorit, yang terakhir disimpan paling atas.
+  List<Movie> get bookmarkedMovies {
+    final byId = {for (final m in _movies) m.id: m};
+    return [for (final id in _bookmarks.toList().reversed) ?byId[id]];
+  }
+
+  int get bookmarkCount => bookmarkedMovies.length;
 
   /// Tambah/hapus favorit. Tampilan langsung berubah; kalau gagal, dikembalikan.
   Future<void> toggleBookmark(Movie movie) async {
