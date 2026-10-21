@@ -46,11 +46,32 @@ Kalau tetap dinyalain juga nggak apa-apa. App bakal minta user buka link di emai
 > Publishable/anon key memang dibuat buat ditaruh di aplikasi, jadi aman masuk GitHub. Data tetap dijaga
 > **Row Level Security** di `schema.sql`. **Jangan pernah** taruh *secret key* / `service_role` di aplikasi.
 
+## 5. Jadikan akunmu admin
+
+Semua akun yang daftar lewat app otomatis jadi **user**, yang cuma bisa lihat film dan nyimpen favorit.
+Buat jadiin admin:
+
+1. Daftar dulu lewat app.
+2. Di **SQL Editor**, jalanin query ini (ganti emailnya):
+
+   ```sql
+   update public.users set role = 'admin' where email = 'email@kamu.com';
+   ```
+
+   Atau lewat **Table Editor → users**: klik dua kali sel `role`, ganti jadi `admin`, terus **Save**.
+3. Di app, tarik layar daftar film ke bawah buat refresh, atau keluar terus masuk lagi. Tombol **+ Tambah**
+   bakal muncul di beranda, dan **Edit film / Hapus film** muncul di halaman detail.
+
+Role nggak bisa diubah dari dalam app, termasuk sama user-nya sendiri. Cuma bisa dari dashboard ini.
+
+> **Project yang dibuat sebelum ada role?** Jalanin [`upgrade_roles.sql`](upgrade_roles.sql) sekali di
+> SQL Editor. Ganti dulu email di baris paling bawahnya pakai email akunmu.
+
 ## Aturan akses (RLS)
 
 | Tabel | Siapa boleh apa |
 | --- | --- |
-| `users` | Tiap user cuma bisa lihat & ubah profilnya sendiri. Barisnya dibuat otomatis waktu daftar. |
-| `movies` | Semua orang boleh lihat. User yang login boleh nambah. Ubah/hapus cuma bisa sama yang nambahin. Film bawaan nggak bisa dihapus dari app. |
+| `users` | Tiap user cuma bisa lihat profilnya sendiri dan ganti **nama**. Kolom `role` nggak bisa diubah dari app. Barisnya dibuat otomatis waktu daftar dengan role `user`. |
+| `movies` | Semua orang boleh lihat. Tambah, ubah, dan hapus cuma bisa sama **admin** (termasuk film bawaan). |
 | `bookmarks` | Tiap user cuma bisa lihat, nambah, dan hapus favoritnya sendiri. |
-| Storage `posters` | Poster bisa dilihat publik. User cuma bisa upload/hapus di folder `posters/<id user>/` miliknya. |
+| Storage `posters` | Poster bisa dilihat publik. Upload dan hapus cuma bisa sama **admin**. |

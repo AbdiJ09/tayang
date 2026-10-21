@@ -131,14 +131,16 @@ class _HomePageState extends State<HomePage> {
                               ],
                             ),
                           ),
-                          const SizedBox(width: 24),
-                          _HeaderAction(
-                            onTap: _openAdd,
-                            child: Text(
-                              '+  TAMBAH',
-                              style: Txt.label(color: Palette.brass),
+                          if (c.isAdmin) ...[
+                            const SizedBox(width: 24),
+                            _HeaderAction(
+                              onTap: _openAdd,
+                              child: Text(
+                                '+  TAMBAH',
+                                style: Txt.label(color: Palette.brass),
+                              ),
                             ),
-                          ),
+                          ],
                         ],
                       ),
                       const SizedBox(height: 28),
@@ -243,7 +245,8 @@ class _HomePageState extends State<HomePage> {
                           children: [
                             Flexible(
                               child: Text(
-                                'MASUK SEBAGAI ${c.user.name.toUpperCase()}',
+                                'MASUK SEBAGAI ${c.user.name.toUpperCase()}'
+                                '${c.isAdmin ? ' · ADMIN' : ''}',
                                 overflow: TextOverflow.ellipsis,
                                 style: Txt.label(
                                   color: Palette.faint,

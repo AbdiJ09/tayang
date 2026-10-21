@@ -11,11 +11,15 @@ import 'theme.dart';
 const _ratings = ['SU', '13+', '17+', '21+'];
 final _timePattern = RegExp(r'^([01]?\d|2[0-3])[:.]([0-5]\d)$');
 
-/// Form tambah film. Mengembalikan [Movie] baru lewat Navigator.pop.
+/// Form tambah / edit film (khusus admin). Menyimpan ke Supabase lalu
+/// mengembalikan [Movie] hasil simpan lewat Navigator.pop.
 class AddMoviePage extends StatefulWidget {
   final Catalog catalog;
 
-  const AddMoviePage({super.key, required this.catalog});
+  /// Diisi untuk mengedit film yang sudah ada; null untuk film baru.
+  final Movie? initial;
+
+  const AddMoviePage({super.key, required this.catalog, this.initial});
 
   @override
   State<AddMoviePage> createState() => _AddMoviePageState();
@@ -37,6 +41,36 @@ class _AddMoviePageState extends State<AddMoviePage> {
   final _schedules = <_ScheduleRow>[_ScheduleRow()];
   String? _error;
   bool _saving = false;
+
+  bool get _editing => widget.initial != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final m = widget.initial;
+    if (m == null) return;
+    _title.text = m.title;
+    _year.text = m.year?.toString() ?? '';
+    _duration.text = m.duration?.toString() ?? '';
+    _genres.text = m.genres.join(', ');
+    _synopsis.text = m.synopsis;
+    _rating = m.rating;
+    _poster = m.poster;
+    if (m.showtimes.isNotEmpty) {
+      for (final r in _schedules) {
+        r.times.dispose();
+      }
+      _schedules
+        ..clear()
+        ..addAll([
+          for (final cin in widget.catalog.cinemas)
+            if (m.showtimes[cin.id] case final times?)
+              _ScheduleRow()
+                ..cinemaId = cin.id
+                ..times.text = times.join(', '),
+        ]);
+    }
+  }
 
   @override
   void dispose() {
@@ -199,7 +233,9 @@ class _AddMoviePageState extends State<AddMoviePage> {
       _error = null;
     });
     try {
-      final saved = await widget.catalog.addMovie(draft);
+      final saved = _editing
+          ? await widget.catalog.updateMovie(widget.initial!, draft)
+          : await widget.catalog.addMovie(draft);
       if (mounted) Navigator.of(context).pop(saved);
     } catch (e) {
       if (mounted) {
@@ -241,10 +277,15 @@ class _AddMoviePageState extends State<AddMoviePage> {
                 ),
               ),
               const SizedBox(height: 28),
-              Text('Tambah film', style: Txt.display(46)),
+              Text(
+                _editing ? 'Edit film' : 'Tambah film',
+                style: Txt.display(46),
+              ),
               const SizedBox(height: 6),
               Text(
-                'Akan terlihat oleh semua pengguna Tayang.',
+                _editing
+                    ? 'Perubahan langsung terlihat oleh semua pengguna.'
+                    : 'Akan terlihat oleh semua pengguna Tayang.',
                 style: Txt.italic(18),
               ),
               const SizedBox(height: 36),
@@ -419,7 +460,9 @@ class _AddMoviePageState extends State<AddMoviePage> {
                   alignment: Alignment.center,
                   color: _saving ? Palette.muted : Palette.ink,
                   child: Text(
-                    _saving ? 'MENYIMPAN…' : 'SIMPAN FILM',
+                    _saving
+                        ? 'MENYIMPAN…'
+                        : (_editing ? 'SIMPAN PERUBAHAN' : 'SIMPAN FILM'),
                     style: Txt.label(color: Palette.bg, size: 12),
                   ),
                 ),

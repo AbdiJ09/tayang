@@ -44,13 +44,24 @@ class AppUser {
   final String name;
   final String email;
 
-  const AppUser({required this.id, required this.name, required this.email});
+  /// 'admin' boleh tambah/edit/hapus film; 'user' hanya melihat.
+  final String role;
+
+  const AppUser({
+    required this.id,
+    required this.name,
+    required this.email,
+    this.role = 'user',
+  });
 
   factory AppUser.fromRow(Map<String, dynamic> r) => AppUser(
     id: r['id'] as String,
     name: r['name'] as String,
     email: r['email'] as String,
+    role: r['role'] as String? ?? 'user',
   );
+
+  bool get isAdmin => role == 'admin';
 }
 
 /// Baris tabel `movies`.
@@ -141,7 +152,7 @@ class Movie {
 /// favorit dari Supabase. Memberi tahu pendengar setiap ada perubahan.
 class Catalog extends ChangeNotifier {
   final SupabaseClient db;
-  final AppUser user;
+  AppUser _user;
   final String updated;
   final List<Region> regions;
   final List<Cinema> cinemas;
@@ -153,7 +164,7 @@ class Catalog extends ChangeNotifier {
 
   Catalog._(
     this.db,
-    this.user,
+    this._user,
     this.updated,
     this.regions,
     this.cinemas,
@@ -163,13 +174,18 @@ class Catalog extends ChangeNotifier {
 
   List<Movie> get movies => List.unmodifiable(_movies);
 
+  AppUser get user => _user;
+
+  /// Hanya admin yang boleh tambah / edit / hapus film (dijaga juga oleh RLS).
+  bool get isAdmin => _user.isAdmin;
+
   static Future<Catalog> load(SupabaseClient db) async {
     final authUser = db.auth.currentUser!;
     final raw = await rootBundle.loadString('assets/data/tayang.json');
     final j = jsonDecode(raw) as Map<String, dynamic>;
 
     final (profile, movies, bookmarks) = await (
-      db.from('users').select().eq('id', authUser.id).maybeSingle(),
+      _fetchProfile(db, authUser.id),
       _fetchMovies(db),
       db
           .from('bookmarks')
@@ -180,13 +196,12 @@ class Catalog extends ChangeNotifier {
 
     return Catalog._(
       db,
-      profile != null
-          ? AppUser.fromRow(profile)
-          : AppUser(
-              id: authUser.id,
-              email: authUser.email ?? '',
-              name: (authUser.email ?? 'kamu').split('@').first,
-            ),
+      profile ??
+          AppUser(
+            id: authUser.id,
+            email: authUser.email ?? '',
+            name: (authUser.email ?? 'kamu').split('@').first,
+          ),
       j['updated'] as String,
       (j['regions'] as List)
           .map((e) => Region.fromJson(e as Map<String, dynamic>))
@@ -199,6 +214,11 @@ class Catalog extends ChangeNotifier {
     );
   }
 
+  static Future<AppUser?> _fetchProfile(SupabaseClient db, String id) async {
+    final row = await db.from('users').select().eq('id', id).maybeSingle();
+    return row == null ? null : AppUser.fromRow(row);
+  }
+
   static Future<List<Movie>> _fetchMovies(SupabaseClient db) async {
     final rows = await db
         .from('movies')
@@ -208,8 +228,10 @@ class Catalog extends ChangeNotifier {
     return rows.map(Movie.fromRow).toList();
   }
 
+  /// Muat ulang film, favorit, dan role (kalau role diubah di dashboard).
   Future<void> refresh() async {
-    final (movies, bookmarks) = await (
+    final (profile, movies, bookmarks) = await (
+      _fetchProfile(db, user.id),
       _fetchMovies(db),
       db
           .from('bookmarks')
@@ -217,6 +239,7 @@ class Catalog extends ChangeNotifier {
           .eq('user_id', user.id)
           .order('created_at'),
     ).wait;
+    if (profile != null) _user = profile;
     _movies = movies;
     _bookmarks
       ..clear()
@@ -226,26 +249,29 @@ class Catalog extends ChangeNotifier {
 
   // ----- movies -----------------------------------------------------------
 
-  bool canDelete(Movie movie) => movie.createdBy == user.id;
-
-  /// Simpan film baru. Poster dari galeri (data URI) diunggah ke Storage dulu.
-  Future<Movie> addMovie(Movie draft) async {
-    var poster = draft.poster;
-    final bytes = draft.posterBytes;
-    if (bytes != null) {
-      final mime = poster!.substring(5, poster.indexOf(';'));
-      final ext = mime.split('/').last.replaceAll('jpeg', 'jpg');
-      final path = '${user.id}/${DateTime.now().millisecondsSinceEpoch}.$ext';
-      await db.storage
-          .from('posters')
-          .uploadBinary(
-            path,
-            bytes,
-            fileOptions: FileOptions(contentType: mime),
-          );
-      poster = db.storage.from('posters').getPublicUrl(path);
+  Movie? movieById(String id) {
+    for (final m in _movies) {
+      if (m.id == id) return m;
     }
+    return null;
+  }
 
+  /// Poster dari galeri (data URI) diunggah ke Storage → URL publik.
+  Future<String?> _uploadPoster(Movie draft) async {
+    final poster = draft.poster;
+    final bytes = draft.posterBytes;
+    if (bytes == null) return poster;
+    final mime = poster!.substring(5, poster.indexOf(';'));
+    final ext = mime.split('/').last.replaceAll('jpeg', 'jpg');
+    final path = '${user.id}/${DateTime.now().millisecondsSinceEpoch}.$ext';
+    await db.storage
+        .from('posters')
+        .uploadBinary(path, bytes, fileOptions: FileOptions(contentType: mime));
+    return db.storage.from('posters').getPublicUrl(path);
+  }
+
+  Future<Movie> addMovie(Movie draft) async {
+    final poster = await _uploadPoster(draft);
     final row = await db
         .from('movies')
         .insert({...draft.toRow(), 'poster_url': poster, 'created_by': user.id})
@@ -257,8 +283,29 @@ class Catalog extends ChangeNotifier {
     return movie;
   }
 
+  Future<Movie> updateMovie(Movie original, Movie draft) async {
+    final poster = await _uploadPoster(draft);
+    final row = {...draft.toRow(), 'poster_url': poster}..remove('created_by');
+    final rows = await db
+        .from('movies')
+        .update(row)
+        .eq('id', original.id)
+        .select();
+    // RLS menolak diam-diam (0 baris) kalau bukan admin.
+    if (rows.isEmpty) throw const NotAllowed();
+    final movie = Movie.fromRow(rows.first);
+    _movies = [for (final m in _movies) m.id == movie.id ? movie : m];
+    notifyListeners();
+    return movie;
+  }
+
   Future<void> removeMovie(Movie movie) async {
-    await db.from('movies').delete().eq('id', movie.id);
+    final rows = await db
+        .from('movies')
+        .delete()
+        .eq('id', movie.id)
+        .select('id');
+    if (rows.isEmpty) throw const NotAllowed();
     _movies = _movies.where((m) => m.id != movie.id).toList();
     _bookmarks.remove(movie.id);
     notifyListeners();
@@ -325,8 +372,16 @@ class Catalog extends ChangeNotifier {
   }
 }
 
+/// Aksi ditolak database karena user bukan admin.
+class NotAllowed implements Exception {
+  const NotAllowed();
+}
+
 /// Pesan error Supabase dalam bahasa Indonesia.
 String friendlyError(Object e) {
+  if (e is NotAllowed) {
+    return 'Hanya admin yang boleh mengubah data film.';
+  }
   final msg = switch (e) {
     AuthException(:final message) => message,
     PostgrestException(:final message) => message,
@@ -348,6 +403,9 @@ String friendlyError(Object e) {
   }
   if (m.contains('invalid') && m.contains('email')) {
     return 'Format email tidak valid.';
+  }
+  if (m.contains('row-level security') || m.contains('permission denied')) {
+    return 'Hanya admin yang boleh mengubah data film.';
   }
   if (m.contains('rate limit') || m.contains('too many')) {
     return 'Terlalu banyak percobaan. Tunggu sebentar lalu coba lagi.';

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'add_movie.dart';
 import 'data.dart';
 import 'home.dart' show BookmarkIcon;
 import 'poster.dart';
@@ -44,6 +45,8 @@ class DetailPage extends StatelessWidget {
 
   Widget _build(BuildContext context) {
     final pad = MediaQuery.sizeOf(context).width > 640 ? 48.0 : 24.0;
+    // Versi terbaru dari katalog (berubah setelah admin mengedit).
+    final movie = catalog.movieById(this.movie.id) ?? this.movie;
     final saved = catalog.isBookmarked(movie);
 
     // Kelompokkan bioskop per wilayah; wilayah terpilih paling atas.
@@ -180,18 +183,28 @@ class DetailPage extends StatelessWidget {
                       onMaps: () => _openMaps(cin),
                     ),
                 ],
-                if (catalog.canDelete(movie)) ...[
+                if (catalog.isAdmin) ...[
                   const SizedBox(height: 56),
-                  GestureDetector(
-                    onTap: () => _confirmDelete(context),
-                    behavior: HitTestBehavior.opaque,
-                    child: Text(
-                      'Hapus film ini',
-                      style: Txt.italic(17, color: Palette.muted).copyWith(
-                        decoration: TextDecoration.underline,
-                        decorationColor: Palette.faint,
+                  Text('ADMIN', style: Txt.label(size: 10)),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      _AdminAction(
+                        'Edit film',
+                        color: Palette.ink,
+                        onTap: () => Navigator.of(context).push(
+                          fadeRoute(
+                            AddMoviePage(catalog: catalog, initial: movie),
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 28),
+                      _AdminAction(
+                        'Hapus film',
+                        color: Palette.muted,
+                        onTap: () => _confirmDelete(context),
+                      ),
+                    ],
                   ),
                 ],
               ],
@@ -304,4 +317,28 @@ class _CinemaBlock extends StatelessWidget {
       ),
     );
   }
+}
+
+class _AdminAction extends StatelessWidget {
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _AdminAction(this.label, {required this.color, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: onTap,
+    behavior: HitTestBehavior.opaque,
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Text(
+        label,
+        style: Txt.italic(18, color: color).copyWith(
+          decoration: TextDecoration.underline,
+          decorationColor: Palette.faint,
+        ),
+      ),
+    ),
+  );
 }

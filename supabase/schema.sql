@@ -5,7 +5,8 @@
 -- tempel SELURUH isi file ini, klik Run. Cukup dijalankan sekali.
 --
 -- Tabel:
---   1. users      profil pengguna (1–1 dengan akun login Supabase Auth)
+--   1. users      profil pengguna + role (admin / user),
+--                 1–1 dengan akun login Supabase Auth
 --   2. movies     daftar film
 --   3. bookmarks  film favorit milik tiap user (relasi users ↔ movies)
 -- =====================================================================
@@ -16,13 +17,32 @@
 -- Login/signup ditangani Supabase Auth (tabel internal auth.users, berisi
 -- email + password ter-hash). Tabel ini menyimpan profilnya, dan barisnya
 -- dibuat otomatis oleh trigger setiap ada akun baru.
+--
+-- role: 'user' (default, hanya bisa melihat film & menyimpan favorit) atau
+-- 'admin' (boleh tambah/edit/hapus film). Role hanya bisa diubah dari
+-- dashboard Supabase — lihat supabase/SETUP.md.
 -- ---------------------------------------------------------------------
 create table public.users (
   id          uuid        primary key references auth.users (id) on delete cascade,
   name        text        not null,
   email       text        not null unique,
+  role        text        not null default 'user' check (role in ('user', 'admin')),
   created_at  timestamptz not null default now()
 );
+
+-- true kalau user yang sedang login adalah admin. security definer supaya
+-- bisa membaca tabel users tanpa terhalang RLS.
+create function public.is_admin()
+returns boolean
+language sql
+stable
+security definer set search_path = ''
+as $$
+  select exists (
+    select 1 from public.users
+    where id = (select auth.uid()) and role = 'admin'
+  );
+$$;
 
 create function public.handle_new_user()
 returns trigger
@@ -47,7 +67,7 @@ create trigger on_auth_user_created
 
 -- ---------------------------------------------------------------------
 -- 2. MOVIES
--- created_by kosong (null) = film bawaan; terisi = ditambahkan user.
+-- created_by kosong (null) = film bawaan; terisi = admin yang menambahkan.
 -- showtimes: { "<id bioskop>": ["13:00", "15:30"] } — id bioskop sesuai
 -- assets/data/tayang.json di aplikasi.
 -- ---------------------------------------------------------------------
@@ -89,27 +109,31 @@ alter table public.users     enable row level security;
 alter table public.movies    enable row level security;
 alter table public.bookmarks enable row level security;
 
-grant select, update                 on public.users     to authenticated;
+-- users hanya boleh mengubah kolom name — role TIDAK bisa diubah dari app.
+revoke all on public.users from anon, authenticated;
+grant select                         on public.users     to authenticated;
+grant update (name)                  on public.users     to authenticated;
 grant select                         on public.movies    to anon, authenticated;
 grant insert, update, delete         on public.movies    to authenticated;
 grant select, insert, delete         on public.bookmarks to authenticated;
 
--- users: hanya bisa melihat & mengubah profil sendiri
+-- users: hanya bisa melihat & mengubah nama di profil sendiri
 create policy "users: lihat profil sendiri" on public.users
   for select to authenticated using ((select auth.uid()) = id);
 create policy "users: ubah profil sendiri" on public.users
   for update to authenticated using ((select auth.uid()) = id) with check ((select auth.uid()) = id);
 
--- movies: semua orang boleh lihat; user login boleh tambah;
--- yang boleh ubah/hapus hanya pembuatnya
+-- movies: semua orang boleh lihat; hanya admin yang boleh tambah/ubah/hapus
 create policy "movies: semua boleh lihat" on public.movies
   for select to anon, authenticated using (true);
-create policy "movies: user login boleh tambah" on public.movies
-  for insert to authenticated with check ((select auth.uid()) = created_by);
-create policy "movies: pembuat boleh ubah" on public.movies
-  for update to authenticated using ((select auth.uid()) = created_by) with check ((select auth.uid()) = created_by);
-create policy "movies: pembuat boleh hapus" on public.movies
-  for delete to authenticated using ((select auth.uid()) = created_by);
+create policy "movies: admin boleh tambah" on public.movies
+  for insert to authenticated
+  with check ((select public.is_admin()) and created_by = (select auth.uid()));
+create policy "movies: admin boleh ubah" on public.movies
+  for update to authenticated
+  using ((select public.is_admin())) with check ((select public.is_admin()));
+create policy "movies: admin boleh hapus" on public.movies
+  for delete to authenticated using ((select public.is_admin()));
 
 -- bookmarks: tiap user hanya mengelola favoritnya sendiri
 create policy "bookmarks: lihat milik sendiri" on public.bookmarks
@@ -122,18 +146,19 @@ create policy "bookmarks: hapus milik sendiri" on public.bookmarks
 
 -- ---------------------------------------------------------------------
 -- Storage: poster yang dipilih dari galeri
--- File disimpan di posters/<user id>/<nama file>, bisa dibaca publik.
+-- File disimpan di posters/<user id>/<nama file>, bisa dibaca publik,
+-- hanya admin yang boleh mengunggah / menghapus.
 -- ---------------------------------------------------------------------
 insert into storage.buckets (id, name, public)
 values ('posters', 'posters', true)
 on conflict (id) do nothing;
 
-create policy "posters: user upload ke foldernya" on storage.objects
+create policy "posters: admin upload" on storage.objects
   for insert to authenticated
-  with check (bucket_id = 'posters' and (storage.foldername(name))[1] = (select auth.uid())::text);
-create policy "posters: user hapus filenya" on storage.objects
+  with check (bucket_id = 'posters' and (select public.is_admin()));
+create policy "posters: admin hapus" on storage.objects
   for delete to authenticated
-  using (bucket_id = 'posters' and (storage.foldername(name))[1] = (select auth.uid())::text);
+  using (bucket_id = 'posters' and (select public.is_admin()));
 
 
 -- ---------------------------------------------------------------------
